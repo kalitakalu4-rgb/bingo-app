@@ -58,10 +58,17 @@
     <div class="brand">ድል BINGO</div>
     <div id="statusPill" class="status-pill">Lobby: 30s</div>
   </div>
-  <div class="wallet-bar">
-    <div class="wallet-bal">Wallet: <span id="walletBal">--</span> ETB</div>
-    <div class="prize-tag">Prize: <span id="prizePool">0</span> ETB</div>
+    <div class="wallet-bar">
+    <div>
+      <div class="wallet-bal">Wallet: <span id="walletBal">--</span> ETB</div>
+      <div class="prize-tag">Prize: <span id="prizePool">0</span> ETB</div>
+    </div>
+    <div style="display: flex; gap: 6px;">
+      <button onclick="openBotCashier('deposit')" style="background: #10b981; color: #052e16; border: none; padding: 8px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;">+ Deposit</button>
+      <button onclick="openBotCashier('withdraw')" style="background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 8px 10px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer;">Withdraw</button>
+    </div>
   </div>
+
   <div id="callerBox" class="caller-box">
     <div class="caller-top">
       <div id="currentBall" class="current-ball">--</div>
@@ -338,6 +345,15 @@
     }
 
     socket.on('errorMsg', function (msg) { showToast(msg); });
+        function openBotCashier(action) {
+      const webApp = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+      if (webApp) {
+        webApp.close();
+      } else {
+        showToast('Open @kaleab_bingo_bot chat and tap ' + action);
+      }
+    }
+
   </script>
 </body>
 </html>
