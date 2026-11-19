@@ -3,185 +3,296 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ድል BINGO</title>
+  <title>Kaleab Bingo</title>
   <script src="https://telegram.org"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-    body { background: #121826; color: #fff; padding: 12px; text-align: center; user-select: none; }
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #1e293b; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px;
-    }
-    .badge { background: #eab308; color: #000; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 14px; }
-    #lobby-screen h2 { font-size: 18px; margin-bottom: 10px; color: #facc15; }
-    .cartela-grid {
-      display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; max-width: 420px; margin: 0 auto;
-    }
-    .cartela-btn {
-      aspect-ratio: 1; border: none; border-radius: 6px; background: #22c55e;
-      color: #fff; font-weight: bold; font-size: 13px; cursor: pointer;
-    }
-    .cartela-btn.taken { background: #ef4444; opacity: 0.55; cursor: not-allowed; }
-    #board-screen { display: none; max-width: 360px; margin: 0 auto; }
+    body { background: #0f172a; color: #f8fafc; padding: 12px; padding-bottom: 40px; }
+    .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #334155; }
+    .brand { font-size: 18px; font-weight: 800; color: #facc15; }
+    .status-pill { background: #0284c7; color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+    .status-pill.live { background: #16a34a; }
+    .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #ef4444; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 999; display: none; text-align: center; width: 90%; }
+    .section-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: #cbd5e1; display: flex; justify-content: space-between; }
+    .cartela-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-bottom: 16px; }
+    .cartela-btn { aspect-ratio: 1; background: #1e293b; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .cartela-btn.taken { background: #475569; color: #94a3b8; cursor: not-allowed; }
+    .cartela-btn.mine { background: #facc15; color: #0f172a; }
+    .caller-box { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 12px; margin-bottom: 14px; display: none; }
+    .caller-top { display: flex; align-items: center; justify-content: space-between; }
+    .current-ball { width: 68px; height: 68px; border-radius: 50%; background: #eab308; color: #0f172a; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; }
+    .recent-wrap { flex: 1; margin-left: 12px; }
+    .recent-label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+    .recent-balls { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mini-ball { background: #334155; color: #f8fafc; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+    .board-container { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 12px; display: none; }
     .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .back-btn { background: #334155; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; }
-    .bingo-table {
-      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
-      background: #1e293b; padding: 10px; border-radius: 12px;
-    }
-    .col-letter { font-size: 22px; font-weight: 900; padding: 6px 0; border-radius: 6px; color: #000; }
-    .b-col { background: #3b82f6; color: #fff; }
-    .i-col { background: #ef4444; color: #fff; }
-    .n-col { background: #eab308; }
-    .g-col { background: #22c55e; color: #fff; }
-    .o-col { background: #a855f7; color: #fff; }
-    .cell {
-      aspect-ratio: 1; background: #f8fafc; color: #0f172a; font-size: 20px; font-weight: bold;
-      display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer;
-    }
-    .cell.marked { background: #f97316; color: #fff; box-shadow: inset 0 0 0 3px #fff; }
-    .cell.free { background: #eab308; color: #000; font-size: 13px; font-weight: 900; }
+    .board-id { font-size: 15px; font-weight: 800; color: #facc15; }
+    .bingo-letters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 6px; }
+    .letter-cell { text-align: center; font-weight: 900; font-size: 18px; padding: 6px 0; border-radius: 8px; color: #0f172a; }
+    .l-b { background: #38bdf8; }
+    .l-i { background: #f472b6; }
+    .l-n { background: #facc15; }
+    .l-g { background: #4ade80; }
+    .l-o { background: #fb923c; }
+    .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 14px; }
+    .num-cell { aspect-ratio: 1; background: #0f172a; border: 2px solid #334155; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #f8fafc; cursor: pointer; }
+    .num-cell.marked { background: #16a34a; border-color: #4ade80; color: #ffffff; }
+    .num-cell.free { background: #eab308; border-color: #fef08a; color: #0f172a; font-size: 13px; }
+    .claim-btn { width: 100%; padding: 15px; background: #facc15; color: #0f172a; font-size: 19px; font-weight: 900; border: none; border-radius: 12px; cursor: pointer; }
+    .winner-modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.92); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+    .winner-card { background: #1e293b; border: 2px solid #facc15; border-radius: 16px; padding: 24px; text-align: center; width: 100%; max-width: 340px; }
+    .winner-title { font-size: 26px; font-weight: 900; color: #facc15; margin-bottom: 10px; }
+    .winner-detail { font-size: 16px; color: #f8fafc; margin-bottom: 6px; }
+    .winner-sub { font-size: 13px; color: #94a3b8; margin-top: 12px; }
   </style>
 </head>
 <body>
-  <header>
-    <span id="player-name">Player</span>
-    <span class="badge">Cartela #<span id="active-cartela">None</span></span>
-  </header>
-
-  <div id="lobby-screen">
-    <h2>Select Your Cartela (1 - 100)</h2>
-    <div class="cartela-grid" id="cartela-grid"></div>
+  <div id="toast" class="toast"></div>
+  <div class="header">
+    <div class="brand">ድል BINGO</div>
+    <div id="statusPill" class="status-pill">Lobby: 30s</div>
   </div>
-
-  <div id="board-screen">
+  <div id="callerBox" class="caller-box">
+    <div class="caller-top">
+      <div id="currentBall" class="current-ball">--</div>
+      <div class="recent-wrap">
+        <div class="recent-label">Recent Balls (<span id="ballCount">0</span>/75)</div>
+        <div id="recentBalls" class="recent-balls"></div>
+      </div>
+    </div>
+  </div>
+  <div id="lobbySection">
+    <div class="section-title">
+      <span>Select Your Cartela (1-100)</span>
+      <span id="takenCount">0 Taken</span>
+    </div>
+    <div id="cartelaGrid" class="cartela-grid"></div>
+  </div>
+  <div id="boardContainer" class="board-container">
     <div class="board-header">
-      <button class="back-btn" onclick="showLobby()">Change Cartela</button>
-      <span style="color:#94a3b8; font-size:13px;">Tap numbers to mark</span>
+      <div id="boardTitle" class="board-id">Cartela #--</div>
+      <div style="font-size: 12px; color: #94a3b8;">Tap numbers to mark</div>
     </div>
-    <div class="bingo-table" id="bingo-board">
-      <div class="col-letter b-col">B</div>
-      <div class="col-letter i-col">I</div>
-      <div class="col-letter n-col">N</div>
-      <div class="col-letter g-col">G</div>
-      <div class="col-letter o-col">O</div>
+    <div class="bingo-letters">
+      <div class="letter-cell l-b">B</div>
+      <div class="letter-cell l-i">I</div>
+      <div class="letter-cell l-n">N</div>
+      <div class="letter-cell l-g">G</div>
+      <div class="letter-cell l-o">O</div>
+    </div>
+    <div id="bingoGrid" class="bingo-grid"></div>
+    <button id="claimBtn" class="claim-btn">BINGO!</button>
+  </div>
+  <div id="winnerModal" class="winner-modal">
+    <div class="winner-card">
+      <div class="winner-title">BINGO! 🎉</div>
+      <div id="winnerName" class="winner-detail">Winner: Player</div>
+      <div id="winnerCartela" class="winner-detail">Cartela #0</div>
+      <div id="winnerPattern" class="winner-detail" style="color: #4ade80;">Pattern: Row 1</div>
+      <div class="winner-sub">Next round lobby starts in a few seconds...</div>
     </div>
   </div>
-
   <script>
-    const tg = window.Telegram && window.Telegram.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (user) {
-        document.getElementById('player-name').textContent = user.first_name;
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) { tg.ready(); tg.expand(); }
+    let playerName = 'Player';
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      playerName = tg.initDataUnsafe.user.first_name || 'Player';
+    }
+    const socket = io();
+    let myCartelaId = null;
+    let currentGameState = 'LOBBY';
+    let lockedMap = {};
+    let markedNumbers = new Array();
+
+    const statusPill = document.getElementById('statusPill');
+    const lobbySection = document.getElementById('lobbySection');
+    const cartelaGrid = document.getElementById('cartelaGrid');
+    const takenCount = document.getElementById('takenCount');
+    const callerBox = document.getElementById('callerBox');
+    const currentBall = document.getElementById('currentBall');
+    const recentBalls = document.getElementById('recentBalls');
+    const ballCount = document.getElementById('ballCount');
+    const boardContainer = document.getElementById('boardContainer');
+    const boardTitle = document.getElementById('boardTitle');
+    const bingoGrid = document.getElementById('bingoGrid');
+    const claimBtn = document.getElementById('claimBtn');
+    const winnerModal = document.getElementById('winnerModal');
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(function () { toast.style.display = 'none'; }, 3000);
+    }
+
+    function formatBall(num) {
+      if (num <= 15) return 'B-' + num;
+      if (num <= 30) return 'I-' + num;
+      if (num <= 45) return 'N-' + num;
+      if (num <= 60) return 'G-' + num;
+      return 'O-' + num;
+    }
+
+    function generateCartelaGrid(cartelaId) {
+      let seed = cartelaId * 9301 + 49297;
+      function nextRandom() {
+        seed = (seed * 1664525 + 1013904223) % 4294967296;
+        return seed / 4294967296;
       }
-    }
-
-    const gridEl = document.getElementById('cartela-grid');
-    let socket = null;
-    if (typeof io !== 'undefined') {
-      socket = io();
-    }
-
-    for (let i = 1; i <= 100; i++) {
-      const btn = document.createElement('button');
-      btn.className = 'cartela-btn';
-      btn.id = 'cartela-' + i;
-      btn.textContent = i;
-      btn.onclick = function() {
-        if (socket) {
-          socket.emit('selectCartela', i);
-        } else {
-          openBoard(i);
-        }
-      };
-      gridEl.appendChild(btn);
-    }
-
-    if (socket) {
-      socket.on('lobbyUpdate', function(takenCartelas) {
-        for (let i = 1; i <= 100; i++) {
-          const btn = document.getElementById('cartela-' + i);
-          const isTaken = Boolean(takenCartelas[i]);
-          btn.classList.toggle('taken', isTaken);
-          btn.disabled = isTaken;
-        }
-      });
-
-      socket.on('cartelaConfirmed', function(cartelaNum) {
-        openBoard(cartelaNum);
-      });
-    }
-
-    function openBoard(cartelaNum) {
-      document.getElementById('active-cartela').textContent = cartelaNum;
-      renderBingoBoard(cartelaNum);
-      document.getElementById('lobby-screen').style.display = 'none';
-      document.getElementById('board-screen').style.display = 'block';
-    }
-
-    function showLobby() {
-      document.getElementById('board-screen').style.display = 'none';
-      document.getElementById('lobby-screen').style.display = 'block';
-    }
-
-    function seededRandom(seed) {
-      let x = Math.sin(seed) * 10000;
-      return x - Math.floor(x);
-    }
-
-    function generateCartelaNumbers(cartelaNum) {
-      let seed = cartelaNum * 997;
+      const ranges = new Array(
+        { min: 1, max: 15 },
+        { min: 16, max: 30 },
+        { min: 31, max: 45 },
+        { min: 46, max: 60 },
+        { min: 61, max: 75 }
+      );
       const columns = new Array();
-
       for (let c = 0; c < 5; c++) {
-        const min = c * 15 + 1;
-        const max = min + 14;
+        const range = ranges.at(c);
         const pool = new Array();
-        for (let n = min; n <= max; n++) {
-          pool.push(n);
+        for (let n = range.min; n <= range.max; n++) { pool.push(n); }
+        const colNumbers = new Array();
+        for (let r = 0; r < 5; r++) {
+          const idx = Math.floor(nextRandom() * pool.length);
+          colNumbers.push(pool.at(idx));
+          pool.splice(idx, 1);
         }
-        for (let i = pool.length - 1; i > 0; i--) {
-          seed++;
-          const j = Math.floor(seededRandom(seed) * (i + 1));
-          const temp = pool.at(i);
-          pool.splice(i, 1, pool.at(j));
-          pool.splice(j, 1, temp);
-        }
-        columns.push(pool.slice(0, 5));
+        columns.push(colNumbers);
       }
-      return columns;
+      const rows = new Array();
+      for (let r = 0; r < 5; r++) {
+        const row = new Array();
+        for (let c = 0; c < 5; c++) {
+          if (r === 2 && c === 2) { row.push(0); }
+          else { row.push(columns.at(c).at(r)); }
+        }
+        rows.push(row);
+      }
+      return rows;
     }
 
-    function renderBingoBoard(cartelaNum) {
-      const boardEl = document.getElementById('bingo-board');
-      while (boardEl.children.length > 5) {
-        boardEl.removeChild(boardEl.lastChild);
+    function renderLobbyGrid() {
+      cartelaGrid.innerHTML = '';
+      takenCount.textContent = Object.keys(lockedMap).length + ' Taken';
+      for (let i = 1; i <= 100; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'cartela-btn';
+        btn.textContent = i;
+        if (myCartelaId === i) { btn.classList.add('mine'); }
+        else if (lockedMap[i]) { btn.classList.add('taken'); }
+        btn.addEventListener('click', function () {
+          if (currentGameState !== 'LOBBY') { showToast('Wait for next round.'); return; }
+          if (lockedMap[i] && myCartelaId !== i) { showToast('Cartela #' + i + ' taken!'); return; }
+          socket.emit('selectCartela', { cartelaId: i, playerName: playerName });
+        });
+        cartelaGrid.appendChild(btn);
       }
-      const cols = generateCartelaNumbers(cartelaNum);
-      for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 5; col++) {
+    }
+
+    function renderBoard(cartelaId) {
+      boardTitle.textContent = 'Cartela #' + cartelaId;
+      bingoGrid.innerHTML = '';
+      const grid = generateCartelaGrid(cartelaId);
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+          const val = grid.at(r).at(c);
           const cell = document.createElement('div');
-          cell.className = 'cell';
-          if (row === 2 && col === 2) {
+          cell.className = 'num-cell';
+          if (val === 0) {
             cell.textContent = 'FREE';
-            cell.classList.add('free', 'marked');
+            cell.classList.add('free');
           } else {
-            cell.textContent = cols.at(col).at(row);
-            cell.onclick = function() {
-              cell.classList.toggle('marked');
-              if (tg && tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
+            cell.textContent = val;
+            if (markedNumbers.includes(val)) { cell.classList.add('marked'); }
+            cell.addEventListener('click', function () {
+              if (markedNumbers.includes(val)) {
+                markedNumbers.splice(markedNumbers.indexOf(val), 1);
+                cell.classList.remove('marked');
+              } else {
+                markedNumbers.push(val);
+                cell.classList.add('marked');
               }
-            };
+            });
           }
-          boardEl.appendChild(cell);
+          bingoGrid.appendChild(cell);
         }
       }
     }
+
+    function updateBallsUI(calledList) {
+      ballCount.textContent = calledList.length;
+      if (calledList.length === 0) { currentBall.textContent = '--'; recentBalls.innerHTML = ''; return; }
+      currentBall.textContent = formatBall(calledList.at(calledList.length - 1));
+      recentBalls.innerHTML = '';
+      const startIdx = Math.max(0, calledList.length - 6);
+      for (let i = calledList.length - 2; i >= startIdx; i--) {
+        const b = document.createElement('div');
+        b.className = 'mini-ball';
+        b.textContent = formatBall(calledList.at(i));
+        recentBalls.appendChild(b);
+      }
+    }
+
+    claimBtn.addEventListener('click', function () {
+      if (!myCartelaId) { showToast('No active Cartela!'); return; }
+      if (currentGameState !== 'PLAYING') { showToast('Game not active.'); return; }
+      socket.emit('claimBingo', { cartelaId: myCartelaId });
+    });
+
+    socket.on('timerTick', function (s) {
+      if (currentGameState === 'LOBBY') { statusPill.textContent = 'Lobby: ' + s + 's'; statusPill.classList.remove('live'); }
+    });
+
+    socket.on('cartelaConfirmed', function (data) {
+      myCartelaId = data.cartelaId;
+      markedNumbers = new Array();
+      boardContainer.style.display = 'block';
+      renderBoard(myCartelaId);
+      renderLobbyGrid();
+    });
+
+    socket.on('stateUpdate', function (state) {
+      currentGameState = state.gameState;
+      lockedMap = state.lockedCartelas || {};
+      if (currentGameState === 'LOBBY') {
+        winnerModal.style.display = 'none';
+        callerBox.style.display = 'none';
+        lobbySection.style.display = 'block';
+        statusPill.textContent = 'Lobby: ' + state.lobbyTimer + 's';
+        statusPill.classList.remove('live');
+        if (myCartelaId && !lockedMap[myCartelaId]) {
+          myCartelaId = null;
+          markedNumbers = new Array();
+          boardContainer.style.display = 'none';
+        }
+        renderLobbyGrid();
+      } else if (currentGameState === 'PLAYING') {
+        winnerModal.style.display = 'none';
+        lobbySection.style.display = 'none';
+        callerBox.style.display = 'block';
+        statusPill.textContent = 'LIVE ROUND';
+        statusPill.classList.add('live');
+        updateBallsUI(state.calledNumbers || new Array());
+        if (myCartelaId) { boardContainer.style.display = 'block'; }
+      } else if (currentGameState === 'ENDED' && state.winnerInfo) {
+        showWinnerModal(state.winnerInfo);
+      }
+    });
+
+    socket.on('ballCalled', function (data) { updateBallsUI(data.calledNumbers || new Array()); });
+    socket.on('gameWon', function (info) { currentGameState = 'ENDED'; showWinnerModal(info); });
+
+    function showWinnerModal(info) {
+      document.getElementById('winnerName').textContent = 'Winner: ' + info.playerName;
+      document.getElementById('winnerCartela').textContent = 'Cartela #' + info.cartelaId;
+      document.getElementById('winnerPattern').textContent = 'Pattern: ' + info.pattern;
+      winnerModal.style.display = 'flex';
+    }
+
+    socket.on('errorMsg', function (msg) { showToast(msg); });
   </script>
 </body>
 </html>
