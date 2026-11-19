@@ -57,7 +57,7 @@
 
   <div id="board-screen">
     <div class="board-header">
-      <button class="back-btn" onclick="showLobby()">← Change Cartela</button>
+      <button class="back-btn" onclick="showLobby()">Change Cartela</button>
       <span style="color:#94a3b8; font-size:13px;">Tap numbers to mark</span>
     </div>
     <div class="bingo-table" id="bingo-board">
@@ -73,8 +73,10 @@
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
-    const user = tg.initDataUnsafe?.user;
-    if (user) document.getElementById('player-name').textContent = user.first_name;
+    const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (user) {
+      document.getElementById('player-name').textContent = user.first_name;
+    }
 
     const socket = io();
     const gridEl = document.getElementById('cartela-grid');
@@ -82,21 +84,24 @@
     for (let i = 1; i <= 100; i++) {
       const btn = document.createElement('button');
       btn.className = 'cartela-btn';
-      btn.id = `cartela-${i}`;
+      btn.id = 'cartela-' + i;
       btn.textContent = i;
-      btn.onclick = () => socket.emit('selectCartela', i);
+      btn.onclick = function() {
+        socket.emit('selectCartela', i);
+      };
       gridEl.appendChild(btn);
     }
 
-    socket.on('lobbyUpdate', (takenCartelas) => {
+    socket.on('lobbyUpdate', function(takenCartelas) {
       for (let i = 1; i <= 100; i++) {
-        const btn = document.getElementById(`cartela-${i}`);
-        btn.classList.toggle('taken', !!takenCartelas[i]);
-        btn.disabled = !!takenCartelas[i];
+        const btn = document.getElementById('cartela-' + i);
+        const isTaken = Boolean(takenCartelas[i]);
+        btn.classList.toggle('taken', isTaken);
+        btn.disabled = isTaken;
       }
     });
 
-    socket.on('cartelaConfirmed', (cartelaNum) => {
+    socket.on('cartelaConfirmed', function(cartelaNum) {
       document.getElementById('active-cartela').textContent = cartelaNum;
       renderBingoBoard(cartelaNum);
       document.getElementById('lobby-screen').style.display = 'none';
@@ -109,21 +114,27 @@
     }
 
     function seededRandom(seed) {
-      let x = Math.sin(seed++) * 10000;
+      let x = Math.sin(seed) * 10000;
       return x - Math.floor(x);
     }
 
     function generateCartelaNumbers(cartelaNum) {
       let seed = cartelaNum * 997;
       const columns = [];
-      const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
+      const mins =;
+      const maxs =;
+
       for (let c = 0; c < 5; c++) {
-        const [min, max] = ranges[c];
         const pool = [];
-        for (let n = min; n <= max; n++) pool.push(n);
+        for (let n = mins[c]; n <= maxs[c]; n++) {
+          pool.push(n);
+        }
         for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(seededRandom(seed++) * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]];
+          seed++;
+          const j = Math.floor(seededRandom(seed) * (i + 1));
+          const temp = pool[i];
+          pool[i] = pool[j];
+          pool[j] = temp;
         }
         columns.push(pool.slice(0, 5));
       }
@@ -132,7 +143,9 @@
 
     function renderBingoBoard(cartelaNum) {
       const boardEl = document.getElementById('bingo-board');
-      while (boardEl.children.length > 5) boardEl.removeChild(boardEl.lastChild);
+      while (boardEl.children.length > 5) {
+        boardEl.removeChild(boardEl.lastChild);
+      }
       const cols = generateCartelaNumbers(cartelaNum);
       for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
@@ -143,9 +156,11 @@
             cell.classList.add('free', 'marked');
           } else {
             cell.textContent = cols[col][row];
-            cell.onclick = () => {
+            cell.onclick = function() {
               cell.classList.toggle('marked');
-              if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+              if (tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred('light');
+              }
             };
           }
           boardEl.appendChild(cell);
