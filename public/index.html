@@ -70,16 +70,21 @@
   </div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-    if (user) {
-      document.getElementById('player-name').textContent = user.first_name;
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (user) {
+        document.getElementById('player-name').textContent = user.first_name;
+      }
     }
 
-    const socket = io();
     const gridEl = document.getElementById('cartela-grid');
+    let socket = null;
+    if (typeof io !== 'undefined') {
+      socket = io();
+    }
 
     for (let i = 1; i <= 100; i++) {
       const btn = document.createElement('button');
@@ -87,26 +92,36 @@
       btn.id = 'cartela-' + i;
       btn.textContent = i;
       btn.onclick = function() {
-        socket.emit('selectCartela', i);
+        if (socket) {
+          socket.emit('selectCartela', i);
+        } else {
+          openBoard(i);
+        }
       };
       gridEl.appendChild(btn);
     }
 
-    socket.on('lobbyUpdate', function(takenCartelas) {
-      for (let i = 1; i <= 100; i++) {
-        const btn = document.getElementById('cartela-' + i);
-        const isTaken = Boolean(takenCartelas[i]);
-        btn.classList.toggle('taken', isTaken);
-        btn.disabled = isTaken;
-      }
-    });
+    if (socket) {
+      socket.on('lobbyUpdate', function(takenCartelas) {
+        for (let i = 1; i <= 100; i++) {
+          const btn = document.getElementById('cartela-' + i);
+          const isTaken = Boolean(takenCartelas[i]);
+          btn.classList.toggle('taken', isTaken);
+          btn.disabled = isTaken;
+        }
+      });
 
-    socket.on('cartelaConfirmed', function(cartelaNum) {
+      socket.on('cartelaConfirmed', function(cartelaNum) {
+        openBoard(cartelaNum);
+      });
+    }
+
+    function openBoard(cartelaNum) {
       document.getElementById('active-cartela').textContent = cartelaNum;
       renderBingoBoard(cartelaNum);
       document.getElementById('lobby-screen').style.display = 'none';
       document.getElementById('board-screen').style.display = 'block';
-    });
+    }
 
     function showLobby() {
       document.getElementById('board-screen').style.display = 'none';
@@ -158,7 +173,7 @@
             cell.textContent = cols.at(col).at(row);
             cell.onclick = function() {
               cell.classList.toggle('marked');
-              if (tg.HapticFeedback) {
+              if (tg && tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('light');
               }
             };
