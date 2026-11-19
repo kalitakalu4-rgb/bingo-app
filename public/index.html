@@ -9,12 +9,15 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
     body { background: #0f172a; color: #f8fafc; padding: 12px; padding-bottom: 40px; }
-    .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #334155; }
+    .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #334155; }
     .brand { font-size: 18px; font-weight: 800; color: #facc15; }
+    .wallet-bar { display: flex; justify-content: space-between; align-items: center; background: #064e3b; border: 1px solid #10b981; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; }
+    .wallet-bal { font-size: 16px; font-weight: 900; color: #34d399; }
+    .prize-tag { font-size: 14px; font-weight: 800; color: #fde047; }
     .status-pill { background: #0284c7; color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
     .status-pill.live { background: #16a34a; }
     .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #ef4444; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 999; display: none; text-align: center; width: 90%; }
-    .section-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: #cbd5e1; display: flex; justify-content: space-between; }
+    .section-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #cbd5e1; display: flex; justify-content: space-between; }
     .cartela-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-bottom: 16px; }
     .cartela-btn { aspect-ratio: 1; background: #1e293b; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .cartela-btn.taken { background: #475569; color: #94a3b8; cursor: not-allowed; }
@@ -45,6 +48,7 @@
     .winner-card { background: #1e293b; border: 2px solid #facc15; border-radius: 16px; padding: 24px; text-align: center; width: 100%; max-width: 340px; }
     .winner-title { font-size: 26px; font-weight: 900; color: #facc15; margin-bottom: 10px; }
     .winner-detail { font-size: 16px; color: #f8fafc; margin-bottom: 6px; }
+    .winner-prize { font-size: 22px; font-weight: 900; color: #34d399; margin: 10px 0; }
     .winner-sub { font-size: 13px; color: #94a3b8; margin-top: 12px; }
   </style>
 </head>
@@ -53,6 +57,10 @@
   <div class="header">
     <div class="brand">ድል BINGO</div>
     <div id="statusPill" class="status-pill">Lobby: 30s</div>
+  </div>
+  <div class="wallet-bar">
+    <div class="wallet-bal">Wallet: <span id="walletBal">--</span> ETB</div>
+    <div class="prize-tag">Prize: <span id="prizePool">0</span> ETB</div>
   </div>
   <div id="callerBox" class="caller-box">
     <div class="caller-top">
@@ -65,7 +73,7 @@
   </div>
   <div id="lobbySection">
     <div class="section-title">
-      <span>Select Your Cartela (1-100)</span>
+      <span>Pick Cartela (Stake: <span id="entryFeeLabel">10</span> ETB)</span>
       <span id="takenCount">0 Taken</span>
     </div>
     <div id="cartelaGrid" class="cartela-grid"></div>
@@ -91,16 +99,14 @@
       <div id="winnerName" class="winner-detail">Winner: Player</div>
       <div id="winnerCartela" class="winner-detail">Cartela #0</div>
       <div id="winnerPattern" class="winner-detail" style="color: #4ade80;">Pattern: Row 1</div>
-      <div class="winner-sub">Next round lobby starts in a few seconds...</div>
+      <div id="winnerPrize" class="winner-prize">+0 ETB</div>
+      <div class="winner-sub">Next round starts in a few seconds...</div>
     </div>
   </div>
   <script>
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
-    let playerName = 'Player';
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-      playerName = tg.initDataUnsafe.user.first_name || 'Player';
-    }
+
     const socket = io();
     let myCartelaId = null;
     let currentGameState = 'LOBBY';
@@ -108,6 +114,9 @@
     let markedNumbers = new Array();
 
     const statusPill = document.getElementById('statusPill');
+    const walletBal = document.getElementById('walletBal');
+    const prizePool = document.getElementById('prizePool');
+    const entryFeeLabel = document.getElementById('entryFeeLabel');
     const lobbySection = document.getElementById('lobbySection');
     const cartelaGrid = document.getElementById('cartelaGrid');
     const takenCount = document.getElementById('takenCount');
@@ -120,6 +129,22 @@
     const bingoGrid = document.getElementById('bingoGrid');
     const claimBtn = document.getElementById('claimBtn');
     const winnerModal = document.getElementById('winnerModal');
+
+    socket.on('connect', function () {
+      const initData = tg ? tg.initData : '';
+      const fallbackUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+      socket.emit('authUser', {
+        initData: initData,
+        fallbackId: fallbackUser ? fallbackUser.id : null,
+        fallbackName: fallbackUser ? fallbackUser.first_name : 'Player'
+      });
+    });
+
+    socket.on('walletUpdate', function (data) {
+      if (data.balance !== undefined) {
+        walletBal.textContent = Number(data.balance).toFixed(2);
+      }
+    });
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -185,8 +210,8 @@
         else if (lockedMap[i]) { btn.classList.add('taken'); }
         btn.addEventListener('click', function () {
           if (currentGameState !== 'LOBBY') { showToast('Wait for next round.'); return; }
-          if (lockedMap[i] && myCartelaId !== i) { showToast('Cartela #' + i + ' taken!'); return; }
-          socket.emit('selectCartela', { cartelaId: i, playerName: playerName });
+          if (lockedMap[i]) { showToast('Cartela #' + i + ' taken!'); return; }
+          socket.emit('selectCartela', { cartelaId: i });
         });
         cartelaGrid.appendChild(btn);
       }
@@ -257,6 +282,9 @@
     socket.on('stateUpdate', function (state) {
       currentGameState = state.gameState;
       lockedMap = state.lockedCartelas || {};
+      if (state.prizePool !== undefined) { prizePool.textContent = state.prizePool; }
+      if (state.entryFee !== undefined) { entryFeeLabel.textContent = state.entryFee; }
+
       if (currentGameState === 'LOBBY') {
         winnerModal.style.display = 'none';
         callerBox.style.display = 'none';
@@ -289,6 +317,7 @@
       document.getElementById('winnerName').textContent = 'Winner: ' + info.playerName;
       document.getElementById('winnerCartela').textContent = 'Cartela #' + info.cartelaId;
       document.getElementById('winnerPattern').textContent = 'Pattern: ' + info.pattern;
+      document.getElementById('winnerPrize').textContent = '+' + (info.prize || 0) + ' ETB';
       winnerModal.style.display = 'flex';
     }
 
