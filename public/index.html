@@ -1,30 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ድል BINGO</title>
+  <script src="https://telegram.org"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
-    body {
-      background: #121826;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      padding-top: 100px;
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #121826; color: #fff; padding: 12px; text-align: center; user-select: none; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #1e293b; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px;
     }
-    h1 { color: #facc15; }
+    .badge { background: #eab308; color: #000; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 14px; }
+    #lobby-screen h2 { font-size: 18px; margin-bottom: 10px; color: #facc15; }
+    .cartela-grid {
+      display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; max-width: 420px; margin: 0 auto;
+    }
+    .cartela-btn {
+      aspect-ratio: 1; border: none; border-radius: 6px; background: #22c55e;
+      color: #fff; font-weight: bold; font-size: 13px; cursor: pointer;
+    }
+    .cartela-btn.taken { background: #ef4444; opacity: 0.55; cursor: not-allowed; }
+    #board-screen { display: none; max-width: 360px; margin: 0 auto; }
+    .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .back-btn { background: #334155; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; }
+    .bingo-table {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+      background: #1e293b; padding: 10px; border-radius: 12px;
+    }
+    .col-letter { font-size: 22px; font-weight: 900; padding: 6px 0; border-radius: 6px; color: #000; }
+    .b-col { background: #3b82f6; color: #fff; }
+    .i-col { background: #ef4444; color: #fff; }
+    .n-col { background: #eab308; }
+    .g-col { background: #22c55e; color: #fff; }
+    .o-col { background: #a855f7; color: #fff; }
+    .cell {
+      aspect-ratio: 1; background: #f8fafc; color: #0f172a; font-size: 20px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer;
+    }
+    .cell.marked { background: #f97316; color: #fff; box-shadow: inset 0 0 0 3px #fff; }
+    .cell.free { background: #eab308; color: #000; font-size: 13px; font-weight: 900; }
   </style>
 </head>
 <body>
-  <h1>ድል BINGO</h1>
-  <p id="msg">Loading...</p>
+  <header>
+    <span id="player-name">Player</span>
+    <span class="badge">Cartela #<span id="active-cartela">None</span></span>
+  </header>
+
+  <div id="lobby-screen">
+    <h2>Select Your Cartela (1 - 100)</h2>
+    <div class="cartela-grid" id="cartela-grid"></div>
+  </div>
+
+  <div id="board-screen">
+    <div class="board-header">
+      <button class="back-btn" onclick="showLobby()">← Change Cartela</button>
+      <span style="color:#94a3b8; font-size:13px;">Tap numbers to mark</span>
+    </div>
+    <div class="bingo-table" id="bingo-board">
+      <div class="col-letter b-col">B</div>
+      <div class="col-letter i-col">I</div>
+      <div class="col-letter n-col">N</div>
+      <div class="col-letter g-col">G</div>
+      <div class="col-letter o-col">O</div>
+    </div>
+  </div>
 
   <script>
     const tg = window.Telegram.WebApp;
+    tg.ready();
     tg.expand();
     const user = tg.initDataUnsafe?.user;
-    document.getElementById('msg').textContent = user 
-      ? 'Selam, ' + user.first_name + '!' 
-      : 'Hello Player!';
+    if (user) document.getElementById('player-name').textContent = user.first_name;
+
+    const socket = io();
+    const gridEl = document.getElementById('cartela-grid');
+
+    for (let i = 1; i <= 100; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cartela-btn';
+      btn.id = `cartela-${i}`;
+      btn.textContent = i;
+      btn.onclick = () => socket.emit('selectCartela', i);
+      gridEl.appendChild(btn);
+    }
+
+    socket.on('lobbyUpdate', (takenCartelas) => {
+      for (let i = 1; i <= 100; i++) {
+        const btn = document.getElementById(`cartela-${i}`);
+        btn.classList.toggle('taken', !!takenCartelas[i]);
+        btn.disabled = !!takenCartelas[i];
+      }
+    });
+
+    socket.on('cartelaConfirmed', (cartelaNum) => {
+      document.getElementById('active-cartela').textContent = cartelaNum;
+      renderBingoBoard(cartelaNum);
+      document.getElementById('lobby-screen').style.display = 'none';
+      document.getElementById('board-screen').style.display = 'block';
+    });
+
+    function showLobby() {
+      document.getElementById('board-screen').style.display = 'none';
+      document.getElementById('lobby-screen').style.display = 'block';
+    }
+
+    function seededRandom(seed) {
+      let x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    }
+
+    function generateCartelaNumbers(cartelaNum) {
+      let seed = cartelaNum * 997;
+      const columns = [];
+      const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
+      for (let c = 0; c < 5; c++) {
+        const [min, max] = ranges[c];
+        const pool = [];
+        for (let n = min; n <= max; n++) pool.push(n);
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(seededRandom(seed++) * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        columns.push(pool.slice(0, 5));
+      }
+      return columns;
+    }
+
+    function renderBingoBoard(cartelaNum) {
+      const boardEl = document.getElementById('bingo-board');
+      while (boardEl.children.length > 5) boardEl.removeChild(boardEl.lastChild);
+      const cols = generateCartelaNumbers(cartelaNum);
+      for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 5; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          if (row === 2 && col === 2) {
+            cell.textContent = 'FREE';
+            cell.classList.add('free', 'marked');
+          } else {
+            cell.textContent = cols[col][row];
+            cell.onclick = () => {
+              cell.classList.toggle('marked');
+              if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            };
+          }
+          boardEl.appendChild(cell);
+        }
+      }
+    }
   </script>
 </body>
 </html>
