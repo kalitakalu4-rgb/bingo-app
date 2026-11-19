@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      background: #121826;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding-top: 100px;
+    }
+    h1 { color: #facc15; }
+  </style>
+</head>
+<body>
+  <h1>ድል BINGO</h1>
+  <p id="msg">Loading...</p>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    const user = tg.initDataUnsafe?.user;
+    document.getElementById('msg').textContent = user 
+      ? 'Selam, ' + user.first_name + '!' 
+      : 'Hello Player!';
+  </script>
+</body>
+</html>
