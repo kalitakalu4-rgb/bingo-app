@@ -397,6 +397,46 @@ io.on('connection', function (socket) {
     }
   });
 });
+let lastUpdateId = 0;
+async function pollTelegramUpdates() {
+  const token = process.env.BOT_TOKEN;
+  const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://onrender.com';
+  if (!token) return;
+
+  try {
+    const resp = await fetch('https://telegram.org' + token + '/getUpdates?offset=' + (lastUpdateId + 1) + '&timeout=10');
+    const data = await resp.json();
+    if (data.ok && data.result) {
+      for (let i = 0; i < data.result.length; i++) {
+        const upd = data.result.at(i);
+        lastUpdateId = upd.update_id;
+        if (upd.message && upd.message.text === '/start') {
+          const chatId = upd.message.chat.id;
+          const firstName = upd.message.from ? upd.message.from.first_name : 'Player';
+          await fetch('https://telegram.org' + token + '/sendMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: 'Welcome to ድል BINGO, ' + firstName + '! 🎉\n\nTap the button below to open your ETB Wallet:',
+              reply_markup: {
+                inline_keyboard: new Array(
+                  new Array({
+                    text: '🎮 Play Kaleab Bingo',
+                    web_app: { url: appUrl }
+                  })
+                )
+              }
+            })
+          });
+        }
+      }
+    }
+  } catch (e) {
+  }
+  setTimeout(pollTelegramUpdates, 1000);
+}
+pollTelegramUpdates();
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, function () {
