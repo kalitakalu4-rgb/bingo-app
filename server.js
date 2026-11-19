@@ -470,7 +470,8 @@ async function pollTelegramUpdates() {
           const text = upd.message.text || '';
 
           // Utility command to discover Admin Group ID
-          if (text === '/groupid') {
+          if (text.startsWith('/groupid')) {
+
             await tgApi('sendMessage', {
               chat_id: chatId,
               text: 'Chat ID: `' + chatId + '`',
