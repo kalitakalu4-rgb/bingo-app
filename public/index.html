@@ -130,7 +130,7 @@
     const claimBtn = document.getElementById('claimBtn');
     const winnerModal = document.getElementById('winnerModal');
 
-        socket.on('connect', function () {
+            socket.on('connect', function () {
       setTimeout(function () {
         const webApp = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
         if (webApp) {
@@ -138,14 +138,22 @@
           webApp.expand();
         }
         const initData = webApp ? webApp.initData : '';
-        const fallbackUser = webApp && webApp.initDataUnsafe && webApp.initDataUnsafe.user ? webApp.initDataUnsafe.user : null;
+        const tgUser = webApp && webApp.initDataUnsafe && webApp.initDataUnsafe.user ? webApp.initDataUnsafe.user : null;
+
+        let localId = localStorage.getItem('kaleab_guest_id');
+        if (!localId) {
+          localId = 'guest_' + Math.floor(Math.random() * 1000000000);
+          localStorage.setItem('kaleab_guest_id', localId);
+        }
+
         socket.emit('authUser', {
           initData: initData,
-          fallbackId: fallbackUser ? fallbackUser.id : null,
-          fallbackName: fallbackUser ? fallbackUser.first_name : 'Player'
+          fallbackId: tgUser ? String(tgUser.id) : localId,
+          fallbackName: tgUser ? tgUser.first_name : 'Player'
         });
-      }, 500);
+      }, 400);
     });
+
 
 
     socket.on('walletUpdate', function (data) {
