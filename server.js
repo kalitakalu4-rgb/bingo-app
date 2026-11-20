@@ -417,7 +417,9 @@ io.on('connection', function (socket) {
 async function tgApi(method, payload) {
   const token = process.env.BOT_TOKEN;
   if (!token) return null;
-  const resp = await fetch('https://telegram.org' + token + '/' + method, {
+    const tgBase = 'https://' + 'api.' + 'telegram.org' + '/bot';
+  const resp = await fetch(tgBase + token + '/' + method, {
+
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -449,10 +451,13 @@ async function pollTelegramUpdates() {
   const token = process.env.BOT_TOKEN;
   const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://onrender.com';
   const adminChatId = process.env.ADMIN_CHAT_ID;
-  if (!token) return;
+    if (!token) return;
+    
 
   try {
-    const resp = await fetch('https://telegram.org' + token + '/getUpdates?offset=' + (lastUpdateId + 1) + '&timeout=10');
+        const tgBase = 'https://' + 'api.' + 'telegram.org' + '/bot';
+    const resp = await fetch(tgBase + token + '/getUpdates?offset=' + (lastUpdateId + 1) + '&timeout=10');
+
     const data = await resp.json();
 
     if (data.ok && data.result) {
